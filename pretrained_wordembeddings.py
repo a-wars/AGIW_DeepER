@@ -48,6 +48,8 @@ print('Found %s word vectors.' % len(embeddings_index))
 print('Processing text dataset')
 
 labels_index = {}  # dictionary mapping label name to numeric id
+labels_index["nonmatching"] = 0
+labels_index["matching"] = 1
 
 
 train_df = pd.read_csv('./datasets/Fodors_Zagats/Fodors_Zagats_train.csv')
@@ -67,34 +69,30 @@ right_valid_text = validation_df['attributi_y']
 left_test_text = test_df['attributi_x']
 right_test_text = test_df['attributi_y']
 
+frames = [left_train_text, left_valid_text]
+test_frames = [train_labels, valid_labels]
+text = pd.concat(frames)
+labels = pd.concat(test_frames)
 
-
-print('Found %s texts.' % len(left_train_text))
+print('Found %s texts.' % len(text))
 
 # finally, vectorize the text samples into a 2D integer tensor
 tokenizer = Tokenizer(num_words=MAX_NUM_WORDS)
-tokenizer.fit_on_texts(left_train_text)
-sequences = tokenizer.texts_to_sequences(left_train_text)
+tokenizer.fit_on_texts(text)
+sequences = tokenizer.texts_to_sequences(text)
 
 word_index = tokenizer.word_index
 
-print(type(word_index))
-print(type(sequences))
-for key in word_index.keys():
-    print(key)
 print('Found %s unique tokens.' % len(word_index))
 
 data = pad_sequences(sequences, maxlen=MAX_SEQUENCE_LENGTH)
+labels = to_categorical(np.asarray(labels))
 
 print('Shape of data tensor:', data.shape)
-print('Shape of label tensor:', train_labels.shape)
+print('Shape of label tensor:', labels.shape)
 
 # split the data into a training set and a validation set
-indices = np.arange(data.shape[0])
-np.random.shuffle(indices)
-data = data[indices]
-labels = labels[indices]
-num_validation_samples = int(VALIDATION_SPLIT * data.shape[0])
+num_validation_samples = left_valid_text.shape[0]
 
 x_train = data[:-num_validation_samples]
 y_train = labels[:-num_validation_samples]
@@ -127,12 +125,7 @@ print('Training model.')
 # train a 1D convnet with global maxpooling
 sequence_input = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 embedded_sequences = embedding_layer(sequence_input)
-x = Conv1D(128, 5, activation='relu')(embedded_sequences)
-x = MaxPooling1D(5)(x)
-x = Conv1D(128, 5, activation='relu')(x)
-x = MaxPooling1D(5)(x)
-x = Conv1D(128, 5, activation='relu')(x)
-x = GlobalMaxPooling1D()(x)
+#x =  LSTM()
 x = Dense(128, activation='relu')(x)
 preds = Dense(len(labels_index), activation='softmax')(x)
 
@@ -144,4 +137,4 @@ model.compile(loss='categorical_crossentropy',
 model.fit(x_train, y_train,
           batch_size=128,
           epochs=50,
-validation_data=(x_val, y_val))
+          validation_data=(x_val, y_val))
