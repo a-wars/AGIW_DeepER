@@ -1,25 +1,13 @@
-'''This script loads pre-trained word embeddings (GloVe embeddings)
-into a frozen Keras Embedding layer, and uses it to
-train a text classification model on the 20 Newsgroup dataset
-(classification of newsgroup messages into 20 different categories).
-GloVe embedding data can be found at:
-http://nlp.stanford.edu/data/glove.6B.zip
-(source page: http://nlp.stanford.edu/projects/glove/)
-20 Newsgroup data can be found at:
-http://www.cs.cmu.edu/afs/cs.cmu.edu/project/theo-20/www/data/news20.html
-'''
-
 from __future__ import print_function
 
 import os
 import numpy as np
+from keras import Input
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras.utils import to_categorical
-from keras.layers import Dense, Input, GlobalMaxPooling1D
-from keras.layers import Conv1D, MaxPooling1D, Embedding
 from keras.models import Model
-from keras.initializers import Constant
+from keras.layers import Dense, Embedding, LSTM, Subtract, Activation
 import pandas as pd
 
 BASE_DIR = './'
@@ -69,72 +57,84 @@ right_valid_text = validation_df['attributi_y']
 left_test_text = test_df['attributi_x']
 right_test_text = test_df['attributi_y']
 
-frames = [left_train_text, left_valid_text]
+frames1 = [left_train_text, left_valid_text]
+frames2 = [right_train_text, right_valid_text]
 test_frames = [train_labels, valid_labels]
-text = pd.concat(frames)
+text1 = pd.concat(frames1)
+text2 = pd.concat(frames2)
 labels = pd.concat(test_frames)
 
-print('Found %s texts.' % len(text))
+print('Found %s texts.' % len(text1))
 
 # finally, vectorize the text samples into a 2D integer tensor
-tokenizer = Tokenizer(num_words=MAX_NUM_WORDS)
-tokenizer.fit_on_texts(text)
-sequences = tokenizer.texts_to_sequences(text)
+tokenizer1 = Tokenizer(num_words=MAX_NUM_WORDS)
+tokenizer1.fit_on_texts(text1)
+sequences1 = tokenizer1.texts_to_sequences(text1)
+word_index1 = tokenizer1.word_index
 
-word_index = tokenizer.word_index
+tokenizer2 = Tokenizer(num_words=MAX_NUM_WORDS)
+tokenizer2.fit_on_texts(text2)
+sequences2 = tokenizer2.texts_to_sequences(text2)
+word_index2 = tokenizer2.word_index
 
-print('Found %s unique tokens.' % len(word_index))
+print('Found %s unique tokens.' % len(word_index1))
 
-data = pad_sequences(sequences, maxlen=MAX_SEQUENCE_LENGTH)
-labels = to_categorical(np.asarray(labels))
+data1 = pad_sequences(sequences1, maxlen=MAX_SEQUENCE_LENGTH)
+data2 = pad_sequences(sequences2, maxlen = MAX_SEQUENCE_LENGTH)
+#labels = to_categorical(np.asarray(labels))
 
-print('Shape of data tensor:', data.shape)
+print('Shape of data1 tensor:', data1.shape)
+print('Shape of data1 tensor:', data2.shape)
 print('Shape of label tensor:', labels.shape)
 
 # split the data into a training set and a validation set
 num_validation_samples = left_valid_text.shape[0]
 
-x_train = data[:-num_validation_samples]
+x_train1 = data1[:-num_validation_samples]
+x_train2 = data2[:-num_validation_samples]
 y_train = labels[:-num_validation_samples]
-x_val = data[-num_validation_samples:]
+x_val1 = data1[-num_validation_samples:]
+x_val2 = data2[-num_validation_samples:]
 y_val = labels[-num_validation_samples:]
 
 print('Preparing embedding matrix.')
 
 # prepare embedding matrix
-num_words = min(MAX_NUM_WORDS, len(word_index)) + 1
-embedding_matrix = np.zeros((num_words, EMBEDDING_DIM))
-for word, i in word_index.items():
+num_words1 = min(MAX_NUM_WORDS, len(word_index1)) + 1
+embedding_matrix1 = np.zeros((num_words1, EMBEDDING_DIM))
+for word, i in word_index1.items():
     if i > MAX_NUM_WORDS:
         continue
     embedding_vector = embeddings_index.get(word)
     if embedding_vector is not None:
         # words not found in embedding index will be all-zeros.
-        embedding_matrix[i] = embedding_vector
+        embedding_matrix1[i] = embedding_vector
+
+num_words2 = min(MAX_NUM_WORDS, len(word_index2))+1
+embedding_matrix2 = np.zeros((num_words2, EMBEDDING_DIM))
+for word, i in word_index2.items():
+    if i > MAX_NUM_WORDS:
+        continue
+    embedding_vector= embeddings_index.get(word)
+    if embedding_vector is not None:
+        embedding_matrix2[i] = embedding_vector
 
 # load pre-trained word embeddings into an Embedding layer
 # note that we set trainable = False so as to keep the embeddings fixed
-embedding_layer = Embedding(num_words,
-                            EMBEDDING_DIM,
-                            embeddings_initializer=Constant(embedding_matrix),
-                            input_length=MAX_SEQUENCE_LENGTH,
-                            trainable=False)
+inputA = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
+inputB = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 
-print('Training model.')
+x1 = Embedding(num_words1, EMBEDDING_DIM, input_length=MAX_SEQUENCE_LENGTH, dropout=0.1)(inputA)
+x1 = LSTM(150, dropout=0.1)(x1)
 
-# train a 1D convnet with global maxpooling
-sequence_input = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
-embedded_sequences = embedding_layer(sequence_input)
-#x =  LSTM()
-x = Dense(128, activation='relu')(x)
-preds = Dense(len(labels_index), activation='softmax')(x)
+x2 = Embedding(num_words1, EMBEDDING_DIM, input_length=MAX_SEQUENCE_LENGTH, dropout=0.1)(inputB)
+x2 = LSTM(150, dropout=0.1)(x2)
 
-model = Model(sequence_input, preds)
-model.compile(loss='categorical_crossentropy',
-              optimizer='rmsprop',
-              metrics=['acc'])
+subtracted = Subtract()([x1, x2])
+dense = Dense(256, activation='relu')(subtracted)
+output = Dense(1, activation='sigmoid')(dense)
+model = Model(inputs=[inputA, inputB], outputs=[output])
+model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+print(model.summary())
 
-model.fit(x_train, y_train,
-          batch_size=128,
-          epochs=50,
-          validation_data=(x_val, y_val))
+model.fit([x_train1, x_train2], y_train, batch_size=16, nb_epoch=20,validation_data=([x_val1, x_val2], y_val))
