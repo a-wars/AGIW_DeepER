@@ -3,9 +3,10 @@ from __future__ import print_function
 import os
 import numpy as np
 from keras import Input
+from keras.callbacks import EarlyStopping
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
-from keras.utils import to_categorical
+from keras.initializers import Constant
 from keras.models import Model
 from keras.layers import Dense, Embedding, LSTM, Subtract, Activation
 import pandas as pd
@@ -124,10 +125,12 @@ for word, i in word_index2.items():
 inputA = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 inputB = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 
-x1 = Embedding(num_words1, EMBEDDING_DIM, input_length=MAX_SEQUENCE_LENGTH, dropout=0.1)(inputA)
+x1 = Embedding(num_words1, EMBEDDING_DIM, input_length=MAX_SEQUENCE_LENGTH,
+               embeddings_initializer=Constant(embedding_matrix1), trainable=False)(inputA)
 x1 = LSTM(150, dropout=0.1)(x1)
 
-x2 = Embedding(num_words1, EMBEDDING_DIM, input_length=MAX_SEQUENCE_LENGTH, dropout=0.1)(inputB)
+x2 = Embedding(num_words1, EMBEDDING_DIM, input_length=MAX_SEQUENCE_LENGTH,
+               embeddings_constraint=Constant(embedding_matrix2), trainable=False)(inputB)
 x2 = LSTM(150, dropout=0.1)(x2)
 
 subtracted = Subtract()([x1, x2])
@@ -137,4 +140,7 @@ model = Model(inputs=[inputA, inputB], outputs=[output])
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 print(model.summary())
 
-model.fit([x_train1, x_train2], y_train, batch_size=16, nb_epoch=20,validation_data=([x_val1, x_val2], y_val))
+model.fit([x_train1, x_train2], y_train, batch_size=16, epochs=20, validation_data=([x_val1, x_val2], y_val),
+          callbacks=[EarlyStopping(patience=4)])
+
+
