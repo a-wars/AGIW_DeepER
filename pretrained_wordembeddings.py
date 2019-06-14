@@ -47,25 +47,34 @@ print('Found %s word vectors.' % len(embeddings_index))
 # second, prepare text samples and their labels
 print('Processing text dataset')
 
-texts = []  # list of text samples
 labels_index = {}  # dictionary mapping label name to numeric id
-labels = []  # list of label ids
-
-train_df = pd.read_csv('./datasets/Fodors-Zagats/Fodors-Zagats_train.csv')
-validation_df = pd.read_csv('./datasets/Fodors-Zagats/Fodors-Zagats_validation.csv')
-test_df = pd.read_csv('./datasets/Fodors-Zagats/Fodors-Zagats_test.csv')
 
 
-for index, row in train_df.iterrows():
-    t = row['left_tuple']
-    texts.append(t)
+train_df = pd.read_csv('./datasets/Fodors_Zagats/Fodors_Zagats_train.csv')
+validation_df = pd.read_csv('./datasets/Fodors_Zagats/Fodors_Zagats_valid.csv')
+test_df = pd.read_csv('./datasets/Fodors_Zagats/Fodors_Zagats_test.csv')
 
-print('Found %s texts.' % len(texts))
+train_labels = train_df['label']
+valid_labels = validation_df['label']
+test_labels = test_df['label']
+
+left_train_text = train_df['attributi_x']
+right_train_text = train_df['attributi_y']
+
+left_valid_text = validation_df['attributi_x']
+right_valid_text = validation_df['attributi_y']
+
+left_test_text = test_df['attributi_x']
+right_test_text = test_df['attributi_y']
+
+
+
+print('Found %s texts.' % len(left_train_text))
 
 # finally, vectorize the text samples into a 2D integer tensor
 tokenizer = Tokenizer(num_words=MAX_NUM_WORDS)
-tokenizer.fit_on_texts(texts)
-sequences = tokenizer.texts_to_sequences(texts)
+tokenizer.fit_on_texts(left_train_text)
+sequences = tokenizer.texts_to_sequences(left_train_text)
 
 word_index = tokenizer.word_index
 
@@ -74,12 +83,11 @@ print(type(sequences))
 for key in word_index.keys():
     print(key)
 print('Found %s unique tokens.' % len(word_index))
-""""
+
 data = pad_sequences(sequences, maxlen=MAX_SEQUENCE_LENGTH)
 
-labels = to_categorical(np.asarray(labels))
 print('Shape of data tensor:', data.shape)
-print('Shape of label tensor:', labels.shape)
+print('Shape of label tensor:', train_labels.shape)
 
 # split the data into a training set and a validation set
 indices = np.arange(data.shape[0])
@@ -137,4 +145,3 @@ model.fit(x_train, y_train,
           batch_size=128,
           epochs=50,
 validation_data=(x_val, y_val))
-"""
