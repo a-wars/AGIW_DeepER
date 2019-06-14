@@ -12,7 +12,6 @@ http://www.cs.cmu.edu/afs/cs.cmu.edu/project/theo-20/www/data/news20.html
 from __future__ import print_function
 
 import os
-import sys
 import numpy as np
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
@@ -21,7 +20,7 @@ from keras.layers import Dense, Input, GlobalMaxPooling1D
 from keras.layers import Conv1D, MaxPooling1D, Embedding
 from keras.models import Model
 from keras.initializers import Constant
-
+import pandas as pd
 
 BASE_DIR = './'
 GLOVE_DIR = os.path.join(BASE_DIR, 'glove')
@@ -51,22 +50,15 @@ print('Processing text dataset')
 texts = []  # list of text samples
 labels_index = {}  # dictionary mapping label name to numeric id
 labels = []  # list of label ids
-for name in sorted(os.listdir(TEXT_DATA_DIR)):
-    path = os.path.join(TEXT_DATA_DIR, name)
-    if os.path.isdir(path):
-        label_id = len(labels_index)
-        labels_index[name] = label_id
-        for fname in sorted(os.listdir(path)):
-            if fname.isdigit():
-                fpath = os.path.join(path, fname)
-                args = {} if sys.version_info < (3,) else {'encoding': 'latin-1'}
-                with open(fpath, **args) as f:
-                    t = f.read()
-                    i = t.find('\n\n')  # skip header
-                    if 0 < i:
-                        t = t[i:]
-                    texts.append(t)
-                labels.append(label_id)
+
+train_df = pd.read_csv('./datasets/Fodors-Zagats/Fodors-Zagats_train.csv')
+validation_df = pd.read_csv('./datasets/Fodors-Zagats/Fodors-Zagats_validation.csv')
+test_df = pd.read_csv('./datasets/Fodors-Zagats/Fodors-Zagats_test.csv')
+
+
+for index, row in train_df.iterrows():
+    t = row['left_tuple']
+    texts.append(t)
 
 print('Found %s texts.' % len(texts))
 
@@ -76,8 +68,13 @@ tokenizer.fit_on_texts(texts)
 sequences = tokenizer.texts_to_sequences(texts)
 
 word_index = tokenizer.word_index
-print('Found %s unique tokens.' % len(word_index))
 
+print(type(word_index))
+print(type(sequences))
+for key in word_index.keys():
+    print(key)
+print('Found %s unique tokens.' % len(word_index))
+""""
 data = pad_sequences(sequences, maxlen=MAX_SEQUENCE_LENGTH)
 
 labels = to_categorical(np.asarray(labels))
@@ -138,5 +135,6 @@ model.compile(loss='categorical_crossentropy',
 
 model.fit(x_train, y_train,
           batch_size=128,
-          epochs=10,
+          epochs=50,
 validation_data=(x_val, y_val))
+"""
