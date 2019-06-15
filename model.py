@@ -13,7 +13,8 @@ import pandas as pd
 
 BASE_DIR = './'
 GLOVE_DIR = os.path.join(BASE_DIR, 'glove')
-TEXT_DATA_DIR = os.path.join(BASE_DIR, 'datasets/amazon_google_exp_data/tableA.csv')
+TEXT_DATA_DIR = os.path.join(
+    BASE_DIR, 'datasets/amazon_google_exp_data/tableA.csv')
 MAX_SEQUENCE_LENGTH = 1000
 MAX_NUM_WORDS = 20000
 EMBEDDING_DIM = 100
@@ -81,7 +82,7 @@ word_index2 = tokenizer2.word_index
 print('Found %s unique tokens.' % len(word_index1))
 
 data1 = pad_sequences(sequences1, maxlen=MAX_SEQUENCE_LENGTH)
-data2 = pad_sequences(sequences2, maxlen = MAX_SEQUENCE_LENGTH)
+data2 = pad_sequences(sequences2, maxlen=MAX_SEQUENCE_LENGTH)
 
 # split the data into a training set and a validation set
 num_training_samples = left_train_text.shape[0]
@@ -91,9 +92,12 @@ num_test_samples = left_test_text.shape[0]
 x_train1 = data1[:num_training_samples]
 x_train2 = data2[:num_training_samples]
 y_train = labels[:num_training_samples]
-x_val1 = data1[num_training_samples:(num_training_samples+num_validation_samples)]
-x_val2 = data2[num_training_samples:(num_training_samples+num_validation_samples)]
-y_val = labels[num_training_samples:(num_training_samples+num_validation_samples)]
+x_val1 = data1[num_training_samples:(
+    num_training_samples + num_validation_samples)]
+x_val2 = data2[num_training_samples:(
+    num_training_samples + num_validation_samples)]
+y_val = labels[num_training_samples:(
+    num_training_samples + num_validation_samples)]
 x_test1 = data1[-num_test_samples:]
 x_test2 = data2[-num_test_samples:]
 y_test = labels[-num_test_samples:]
@@ -115,7 +119,7 @@ for word, i in word_index1.items():
         # words not found in embedding index will be all-zeros.
         embedding_matrix1[i] = embedding_vector
 
-num_words2 = min(MAX_NUM_WORDS, len(word_index2))+1
+num_words2 = min(MAX_NUM_WORDS, len(word_index2)) + 1
 embedding_matrix2 = np.zeros((num_words2, EMBEDDING_DIM))
 for word, i in word_index2.items():
     if i > MAX_NUM_WORDS:
@@ -129,25 +133,34 @@ for word, i in word_index2.items():
 inputA = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 inputB = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 
-x1 = Embedding(num_words1, EMBEDDING_DIM, input_length=MAX_SEQUENCE_LENGTH,
-               embeddings_initializer=Constant(embedding_matrix1), trainable=False)(inputA)
+x1 = Embedding(
+    num_words1,
+    EMBEDDING_DIM,
+    input_length=MAX_SEQUENCE_LENGTH,
+    embeddings_initializer=Constant(embedding_matrix1),
+    trainable=False)(inputA)
 x1 = LSTM(150, dropout=0.1)(x1)
 
-x2 = Embedding(num_words2, EMBEDDING_DIM, input_length=MAX_SEQUENCE_LENGTH,
-               embeddings_constraint=Constant(embedding_matrix2), trainable=False)(inputB)
+x2 = Embedding(
+    num_words2,
+    EMBEDDING_DIM,
+    input_length=MAX_SEQUENCE_LENGTH,
+    embeddings_constraint=Constant(embedding_matrix2),
+    trainable=False)(inputB)
 x2 = LSTM(150, dropout=0.1)(x2)
 
 subtracted = Subtract()([x1, x2])
 dense = Dense(256, activation='relu')(subtracted)
 output = Dense(1, activation='sigmoid')(dense)
 model = Model(inputs=[inputA, inputB], outputs=[output])
-model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+model.compile(
+    loss='binary_crossentropy',
+    optimizer='adam',
+    metrics=['accuracy'])
 print(model.summary())
 
-model.fit([x_train1, x_train2], y_train, batch_size=32, epochs=20, validation_data=([x_val1, x_val2], y_val),
-          callbacks=[EarlyStopping(patience=4)])
+model.fit([x_train1, x_train2], y_train, batch_size=32, epochs=20, validation_data=(
+    [x_val1, x_val2], y_val), callbacks=[EarlyStopping(patience=4)])
 
 test_result = model.evaluate(x=[x_test1, x_test2], y=y_test)
 print(test_result)
-
-
