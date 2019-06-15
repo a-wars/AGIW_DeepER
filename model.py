@@ -6,19 +6,15 @@ from keras import Input
 from keras.callbacks import EarlyStopping
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
-from keras.initializers import Constant
 from keras.models import Model
 from keras.layers import Dense, Embedding, LSTM, Subtract, Activation
 import pandas as pd
 
-BASE_DIR = './'
+BASE_DIR = '.'
 GLOVE_DIR = os.path.join(BASE_DIR, 'glove')
-TEXT_DATA_DIR = os.path.join(
-    BASE_DIR, 'datasets/amazon_google_exp_data/tableA.csv')
 MAX_SEQUENCE_LENGTH = 1000
 MAX_NUM_WORDS = 20000
 EMBEDDING_DIM = 100
-VALIDATION_SPLIT = 0.2
 
 # first, build index mapping words in the embeddings set
 # to their embedding vector
@@ -133,20 +129,12 @@ for word, i in word_index2.items():
 inputA = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 inputB = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 
-x1 = Embedding(
-    num_words1,
-    EMBEDDING_DIM,
-    input_length=MAX_SEQUENCE_LENGTH,
-    embeddings_initializer=Constant(embedding_matrix1),
-    trainable=False)(inputA)
+x1 = Embedding(num_words1, EMBEDDING_DIM, input_length=MAX_SEQUENCE_LENGTH,
+               weights=[embedding_matrix1], trainable=True)(inputA)
 x1 = LSTM(150, dropout=0.1)(x1)
 
-x2 = Embedding(
-    num_words2,
-    EMBEDDING_DIM,
-    input_length=MAX_SEQUENCE_LENGTH,
-    embeddings_constraint=Constant(embedding_matrix2),
-    trainable=False)(inputB)
+x2 = Embedding(num_words2, EMBEDDING_DIM, input_length=MAX_SEQUENCE_LENGTH,
+               weights=[embedding_matrix2], trainable=True)(inputB)
 x2 = LSTM(150, dropout=0.1)(x2)
 
 subtracted = Subtract()([x1, x2])
