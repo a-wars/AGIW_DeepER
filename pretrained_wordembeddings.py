@@ -58,12 +58,12 @@ right_valid_text = validation_df['attributi_y']
 left_test_text = test_df['attributi_x']
 right_test_text = test_df['attributi_y']
 
-frames1 = [left_train_text, left_valid_text]
-frames2 = [right_train_text, right_valid_text]
-test_frames = [train_labels, valid_labels]
+frames1 = [left_train_text, left_valid_text, left_test_text]
+frames2 = [right_train_text, right_valid_text, right_test_text]
+label_frames = [train_labels, valid_labels, test_labels]
 text1 = pd.concat(frames1)
 text2 = pd.concat(frames2)
-labels = pd.concat(test_frames)
+labels = pd.concat(label_frames)
 
 print('Found %s texts.' % len(text1))
 
@@ -82,22 +82,26 @@ print('Found %s unique tokens.' % len(word_index1))
 
 data1 = pad_sequences(sequences1, maxlen=MAX_SEQUENCE_LENGTH)
 data2 = pad_sequences(sequences2, maxlen = MAX_SEQUENCE_LENGTH)
-#labels = to_categorical(np.asarray(labels))
-
-print('Shape of data1 tensor:', data1.shape)
-print('Shape of data1 tensor:', data2.shape)
-print('Shape of label tensor:', labels.shape)
 
 # split the data into a training set and a validation set
+num_training_samples = left_train_text.shape[0]
 num_validation_samples = left_valid_text.shape[0]
+num_test_samples = left_test_text.shape[0]
 
-x_train1 = data1[:-num_validation_samples]
-x_train2 = data2[:-num_validation_samples]
-y_train = labels[:-num_validation_samples]
-x_val1 = data1[-num_validation_samples:]
-x_val2 = data2[-num_validation_samples:]
-y_val = labels[-num_validation_samples:]
+x_train1 = data1[:num_training_samples]
+x_train2 = data2[:num_training_samples]
+y_train = labels[:num_training_samples]
+x_val1 = data1[num_training_samples:(num_training_samples+num_validation_samples)]
+x_val2 = data2[num_training_samples:(num_training_samples+num_validation_samples)]
+y_val = labels[num_training_samples:(num_training_samples+num_validation_samples)]
+x_test1 = data1[-num_test_samples:]
+x_test2 = data2[-num_test_samples:]
+y_test = labels[-num_test_samples:]
 
+
+print('Shape of training data:', x_train1.shape)
+print('Shape of validation data:', x_val1.shape)
+print('Shape of test data:', x_test1.shape)
 print('Preparing embedding matrix.')
 
 # prepare embedding matrix
@@ -116,7 +120,7 @@ embedding_matrix2 = np.zeros((num_words2, EMBEDDING_DIM))
 for word, i in word_index2.items():
     if i > MAX_NUM_WORDS:
         continue
-    embedding_vector= embeddings_index.get(word)
+    embedding_vector = embeddings_index.get(word)
     if embedding_vector is not None:
         embedding_matrix2[i] = embedding_vector
 
@@ -129,7 +133,7 @@ x1 = Embedding(num_words1, EMBEDDING_DIM, input_length=MAX_SEQUENCE_LENGTH,
                embeddings_initializer=Constant(embedding_matrix1), trainable=False)(inputA)
 x1 = LSTM(150, dropout=0.1)(x1)
 
-x2 = Embedding(num_words1, EMBEDDING_DIM, input_length=MAX_SEQUENCE_LENGTH,
+x2 = Embedding(num_words2, EMBEDDING_DIM, input_length=MAX_SEQUENCE_LENGTH,
                embeddings_constraint=Constant(embedding_matrix2), trainable=False)(inputB)
 x2 = LSTM(150, dropout=0.1)(x2)
 
@@ -140,7 +144,10 @@ model = Model(inputs=[inputA, inputB], outputs=[output])
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 print(model.summary())
 
-model.fit([x_train1, x_train2], y_train, batch_size=16, epochs=20, validation_data=([x_val1, x_val2], y_val),
+model.fit([x_train1, x_train2], y_train, batch_size=32, epochs=20, validation_data=([x_val1, x_val2], y_val),
           callbacks=[EarlyStopping(patience=4)])
+
+test_result = model.evaluate(x=[x_test1, x_test2], y=y_test)
+print(test_result)
 
 
