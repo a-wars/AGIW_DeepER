@@ -1,6 +1,5 @@
 /deeperenv/
 /glove/
-/datasets/
 .idea
 .DS_Store
 .ipynb_checkpoints/
