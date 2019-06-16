@@ -8,6 +8,7 @@ from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras.models import Model
 from keras.layers import Dense, Embedding, LSTM, Subtract, Activation
+from keras.optimizers import Adam
 import pandas as pd
 
 BASE_DIR = '.'
@@ -139,7 +140,7 @@ output = Dense(1, activation='sigmoid')(dense)
 model = Model(inputs=[inputA, inputB], outputs=[output])
 model.compile(
     loss='binary_crossentropy',
-    optimizer='adam',
+    optimizer= Adam(lr=0.01),
     metrics=['accuracy'])
 print(model.summary())
 
