@@ -33,10 +33,6 @@ print('Found %s word vectors.' % len(embeddings_index))
 # second, prepare text samples and their labels
 print('Processing text dataset')
 
-labels_index = {}  # dictionary mapping label name to numeric id
-labels_index["nonmatching"] = 0
-labels_index["matching"] = 1
-
 
 train_df = pd.read_csv('./datasets/Fodors_Zagats/Fodors_Zagats_train.csv')
 validation_df = pd.read_csv('./datasets/Fodors_Zagats/Fodors_Zagats_valid.csv')
