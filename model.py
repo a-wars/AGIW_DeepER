@@ -136,11 +136,11 @@ inputA = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 inputB = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 
 x1 = Embedding(num_words1, EMBEDDING_DIM, input_length=MAX_SEQUENCE_LENGTH,
-               weights=[embedding_matrix1], trainable=True)(inputA)
+               weights=[embedding_matrix1], trainable=True, mask_zero=True)(inputA)
 x1 = LSTM(150)(x1)
 
 x2 = Embedding(num_words2, EMBEDDING_DIM, input_length=MAX_SEQUENCE_LENGTH,
-               weights=[embedding_matrix2], trainable=True)(inputB)
+               weights=[embedding_matrix2], trainable=True, mask_zero=True)(inputB)
 x2 = LSTM(150)(x2)
 
 subtracted = Subtract()([x1, x2])
