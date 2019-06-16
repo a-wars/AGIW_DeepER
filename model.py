@@ -153,7 +153,7 @@ model.compile(
     metrics=['accuracy'])
 print(model.summary())
 
-model.fit([x_train1, x_train2], y_train, batch_size=32, epochs=20, validation_data=(
+model.fit([x_train1, x_train2], y_train, batch_size=16, epochs=20, validation_data=(
     [x_val1, x_val2], y_val), callbacks=[EarlyStopping(patience=4)])
 
 test_result = model.evaluate(x=[x_test1, x_test2], y=y_test)
