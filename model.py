@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import os
 import numpy as np
 import pandas as pd
@@ -60,29 +58,26 @@ rightTableRecordsList = [
     rightTableTrainRecords,
     rightTableValRecords,
     rightTableTestRecords]
+tableRecordsList = leftTableRecordsList + rightTableRecordsList
 
 
 # concat previously defined lists
 leftTableRecords = pd.concat(leftTableRecordsList)
 rightTableRecords = pd.concat(rightTableRecordsList)
-
+tableRecords = pd.concat(tableRecordsList)
 
 print('Found %s texts.' % len(leftTableRecords))
 
 
 # finally, vectorize the text samples into a 2D integer tensor
-leftTableTokenizer = Tokenizer(num_words=MAX_NUM_WORDS)
-leftTableTokenizer.fit_on_texts(leftTableRecords)
-leftTableVectors = leftTableTokenizer.texts_to_sequences(leftTableRecords)
-leftTableWordToIndexMap = leftTableTokenizer.word_index
-
-rightTableTokenizer = Tokenizer(num_words=MAX_NUM_WORDS)
-rightTableTokenizer.fit_on_texts(rightTableRecords)
-rightTableVectors = rightTableTokenizer.texts_to_sequences(rightTableRecords)
-rightTableWordToIndexMap = rightTableTokenizer.word_index
+tokenizer = Tokenizer(num_words=MAX_NUM_WORDS)
+tokenizer.fit_on_texts(tableRecords)
+wordToIndexMap = tokenizer.word_index
+leftTableVectors = tokenizer.texts_to_sequences(leftTableRecords)
+rightTableVectors = tokenizer.texts_to_sequences(rightTableRecords)
 
 
-print('Found %s unique tokens.' % len(leftTableWordToIndexMap))
+print('Found %s unique tokens.' % len(wordToIndexMap))
 
 
 # pad with zeros each integer sequence in each table up to MAX_SEQUENCE_LENGTH
@@ -118,9 +113,9 @@ print('Preparing embedding matrix.')
 
 
 # prepare embedding matrix
-leftTableVocab = min(MAX_NUM_WORDS, len(leftTableWordToIndexMap)) + 1
-leftTableEmbeddingMatrix = np.zeros((leftTableVocab, EMBEDDING_DIM))
-for word, i in leftTableWordToIndexMap.items():
+leftTableVocabSize = min(MAX_NUM_WORDS, len(wordToIndexMap)) + 1
+leftTableEmbeddingMatrix = np.zeros((leftTableVocabSize, EMBEDDING_DIM))
+for word, i in wordToIndexMap.items():
     if i > MAX_NUM_WORDS:
         continue
     embedding_vector = wordToEmbeddingMap.get(word)
@@ -128,9 +123,9 @@ for word, i in leftTableWordToIndexMap.items():
         # words not found in embedding index will be all-zeros.
         leftTableEmbeddingMatrix[i] = embedding_vector
 
-rightTableVocab = min(MAX_NUM_WORDS, len(rightTableWordToIndexMap)) + 1
-rightTableEmbeddingMatrix = np.zeros((rightTableVocab, EMBEDDING_DIM))
-for word, i in rightTableWordToIndexMap.items():
+rightTableVocabSize = min(MAX_NUM_WORDS, len(wordToIndexMap)) + 1
+rightTableEmbeddingMatrix = np.zeros((rightTableVocabSize, EMBEDDING_DIM))
+for word, i in wordToIndexMap.items():
     if i > MAX_NUM_WORDS:
         continue
     embedding_vector = wordToEmbeddingMap.get(word)
@@ -143,7 +138,7 @@ inputA = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 inputB = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 
 x1 = Embedding(
-    leftTableVocab,
+    leftTableVocabSize,
     EMBEDDING_DIM,
     input_length=MAX_SEQUENCE_LENGTH,
     weights=[leftTableEmbeddingMatrix],
@@ -152,7 +147,7 @@ x1 = Embedding(
 x1 = LSTM(150)(x1)
 
 x2 = Embedding(
-    rightTableVocab,
+    rightTableVocabSize,
     EMBEDDING_DIM,
     input_length=MAX_SEQUENCE_LENGTH,
     weights=[rightTableEmbeddingMatrix],
