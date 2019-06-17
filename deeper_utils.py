@@ -1,14 +1,8 @@
 import os
 import numpy as np
 import pandas as pd
-from keras import Input
-from keras.callbacks import EarlyStopping
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
-from keras.models import Model
-from keras.layers import Dense, Embedding, LSTM, Subtract, Activation
-from keras.optimizers import Adam
-
 
 def preprocess_data(
         datasetName,
@@ -119,70 +113,3 @@ def preprocess_data(
     valData = [leftTableValData, rightTableValData, valLabels]
 
     return trainData, testData, valData, embeddingMatrix
-
-
-def build_model(
-        embeddingMatrix,
-        maxSequenceLength=1000,
-        lstmUnits=150,
-        denseUnits=256):
-    vocabSize = embeddingMatrix.shape[0]
-    embeddingDim = embeddingMatrix.shape[1]
-    print(embeddingDim)
-    leftInput = Input(shape=(maxSequenceLength,), dtype='int32')
-    rightInput = Input(shape=(maxSequenceLength,), dtype='int32')
-
-    leftEmbeddingLayer = Embedding(
-        vocabSize,
-        embeddingDim,
-        input_length=maxSequenceLength,
-        weights=[embeddingMatrix],
-        trainable=True,
-        mask_zero=True)(leftInput)
-    rightEmbeddingLayer = Embedding(
-        vocabSize,
-        embeddingDim,
-        input_length=maxSequenceLength,
-        weights=[embeddingMatrix],
-        trainable=True,
-        mask_zero=True)(rightInput)
-
-    leftLSTMLayer = LSTM(lstmUnits)(leftEmbeddingLayer)
-    rightLSTMLayer = LSTM(lstmUnits)(rightEmbeddingLayer)
-
-    similarityLayer = Subtract()([leftLSTMLayer, rightLSTMLayer])
-    denseLayer = Dense(denseUnits, activation='relu')(similarityLayer)
-    outputLayer = Dense(1, activation='sigmoid')(denseLayer)
-
-    model = Model(inputs=[leftInput, rightInput], outputs=[outputLayer])
-
-    model.compile(
-        loss='binary_crossentropy',
-        optimizer=Adam(lr=0.01),
-        metrics=['accuracy'])
-
-    return model
-
-
-trainData, testData, valData, embeddingMatrix = preprocess_data(
-    'Fodors_Zagats')
-leftTableTrainData, rightTableTrainData, trainLabels = trainData
-leftTableTestData, rightTableTestData, testLabels = testData
-leftTableValData, rightTableValData, valLabels = valData
-
-model = build_model(embeddingMatrix)
-print(model.summary())
-
-model.fit([leftTableTrainData,
-           rightTableTrainData],
-          trainLabels,
-          batch_size=16,
-          epochs=20,
-          validation_data=([leftTableValData,
-                            rightTableValData],
-                           valLabels),
-          callbacks=[EarlyStopping(patience=4)])
-
-test_result = model.evaluate(
-    x=[leftTableTestData, rightTableTestData], y=testLabels)
-print(test_result)
