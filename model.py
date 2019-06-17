@@ -113,24 +113,15 @@ print('Preparing embedding matrix.')
 
 
 # prepare embedding matrix
-leftTableVocabSize = min(MAX_NUM_WORDS, len(wordToIndexMap)) + 1
-leftTableEmbeddingMatrix = np.zeros((leftTableVocabSize, EMBEDDING_DIM))
+vocabSize = min(MAX_NUM_WORDS, len(wordToIndexMap)) + 1
+embeddingMatrix = np.zeros((vocabSize, EMBEDDING_DIM))
 for word, i in wordToIndexMap.items():
     if i > MAX_NUM_WORDS:
         continue
-    embedding_vector = wordToEmbeddingMap.get(word)
-    if embedding_vector is not None:
+    embeddingVector = wordToEmbeddingMap.get(word)
+    if embeddingVector is not None:
         # words not found in embedding index will be all-zeros.
-        leftTableEmbeddingMatrix[i] = embedding_vector
-
-rightTableVocabSize = min(MAX_NUM_WORDS, len(wordToIndexMap)) + 1
-rightTableEmbeddingMatrix = np.zeros((rightTableVocabSize, EMBEDDING_DIM))
-for word, i in wordToIndexMap.items():
-    if i > MAX_NUM_WORDS:
-        continue
-    embedding_vector = wordToEmbeddingMap.get(word)
-    if embedding_vector is not None:
-        rightTableEmbeddingMatrix[i] = embedding_vector
+        embeddingMatrix[i] = embeddingVector
 
 # load pre-trained word embeddings into an Embedding layer
 # note that we set trainable = False so as to keep the embeddings fixed
@@ -138,19 +129,19 @@ inputA = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 inputB = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 
 x1 = Embedding(
-    leftTableVocabSize,
+    vocabSize,
     EMBEDDING_DIM,
     input_length=MAX_SEQUENCE_LENGTH,
-    weights=[leftTableEmbeddingMatrix],
+    weights=[embeddingMatrix],
     trainable=True,
     mask_zero=True)(inputA)
 x1 = LSTM(150)(x1)
 
 x2 = Embedding(
-    rightTableVocabSize,
+    vocabSize,
     EMBEDDING_DIM,
     input_length=MAX_SEQUENCE_LENGTH,
-    weights=[rightTableEmbeddingMatrix],
+    weights=[embeddingMatrix],
     trainable=True,
     mask_zero=True)(inputB)
 x2 = LSTM(150)(x2)
