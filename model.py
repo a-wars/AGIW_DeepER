@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import os
 import numpy as np
+import pandas as pd
 from keras import Input
 from keras.callbacks import EarlyStopping
 from keras.preprocessing.text import Tokenizer
@@ -9,7 +10,6 @@ from keras.preprocessing.sequence import pad_sequences
 from keras.models import Model
 from keras.layers import Dense, Embedding, LSTM, Subtract, Activation
 from keras.optimizers import Adam
-import pandas as pd
 
 BASE_DIR = '.'
 GLOVE_DIR = os.path.join(BASE_DIR, 'glove')
@@ -41,106 +41,123 @@ testLabels = testDf['label']
 
 
 # extract data from each dataset
-leftTableTrainData = trainDf['attributi_x']
-rightTableTrainData = trainDf['attributi_y']
+leftTableTrainRecords = trainDf['attributi_x']
+rightTableTrainRecords = trainDf['attributi_y']
 
-leftTableValData = valDf['attributi_x']
-rightTableValData = valDf['attributi_y']
+leftTableValRecords = valDf['attributi_x']
+rightTableValRecords = valDf['attributi_y']
 
-leftTableTestData = testDf['attributi_x']
-rightTableTestData = testDf['attributi_y']
-
-
-# put train, test and validation data into a list
-leftTableDataList = [leftTableTrainData, leftTableValData, leftTableTestData]
-rightTableDataList = [
-    rightTableTrainData,
-    rightTableValData,
-    rightTableTestData]
+leftTableTestRecords = testDf['attributi_x']
+rightTableTestRecords = testDf['attributi_y']
 
 
-# put train, test and validation labels into a list
-labelsList = [trainLabels, valLabels, testLabels]
+# put train, test and validation records into a list
+leftTableRecordsList = [
+    leftTableTrainRecords,
+    leftTableValRecords,
+    leftTableTestRecords]
+rightTableRecordsList = [
+    rightTableTrainRecords,
+    rightTableValRecords,
+    rightTableTestRecords]
 
 
 # concat previously defined lists
-leftTableData = pd.concat(leftTableDataList)
-rightTableData = pd.concat(rightTableDataList)
-labels = pd.concat(labelsList)
+leftTableRecords = pd.concat(leftTableRecordsList)
+rightTableRecords = pd.concat(rightTableRecordsList)
 
-print('Found %s texts.' % len(leftTableData))
+
+print('Found %s texts.' % len(leftTableRecords))
+
 
 # finally, vectorize the text samples into a 2D integer tensor
-tokenizer1 = Tokenizer(num_words=MAX_NUM_WORDS)
-tokenizer1.fit_on_texts(leftTableData)
-sequences1 = tokenizer1.texts_to_sequences(leftTableData)
-word_index1 = tokenizer1.word_index
+leftTableTokenizer = Tokenizer(num_words=MAX_NUM_WORDS)
+leftTableTokenizer.fit_on_texts(leftTableRecords)
+leftTableVectors = leftTableTokenizer.texts_to_sequences(leftTableRecords)
+leftTableWordToIndexMap = leftTableTokenizer.word_index
 
-tokenizer2 = Tokenizer(num_words=MAX_NUM_WORDS)
-tokenizer2.fit_on_texts(rightTableData)
-sequences2 = tokenizer2.texts_to_sequences(rightTableData)
-word_index2 = tokenizer2.word_index
-
-print('Found %s unique tokens.' % len(word_index1))
-
-data1 = pad_sequences(sequences1, maxlen=MAX_SEQUENCE_LENGTH)
-data2 = pad_sequences(sequences2, maxlen=MAX_SEQUENCE_LENGTH)
-
-# split the data into a training set and a validation set
-num_training_samples = leftTableTrainData.shape[0]
-num_validation_samples = leftTableValData.shape[0]
-num_test_samples = leftTableTestData.shape[0]
-
-x_train1 = data1[:num_training_samples]
-x_train2 = data2[:num_training_samples]
-y_train = labels[:num_training_samples]
-x_val1 = data1[num_training_samples:(
-    num_training_samples + num_validation_samples)]
-x_val2 = data2[num_training_samples:(
-    num_training_samples + num_validation_samples)]
-y_val = labels[num_training_samples:(
-    num_training_samples + num_validation_samples)]
-x_test1 = data1[-num_test_samples:]
-x_test2 = data2[-num_test_samples:]
-y_test = labels[-num_test_samples:]
+rightTableTokenizer = Tokenizer(num_words=MAX_NUM_WORDS)
+rightTableTokenizer.fit_on_texts(rightTableRecords)
+rightTableVectors = rightTableTokenizer.texts_to_sequences(rightTableRecords)
+rightTableWordToIndexMap = rightTableTokenizer.word_index
 
 
-print('Shape of training data:', x_train1.shape)
-print('Shape of validation data:', x_val1.shape)
-print('Shape of test data:', x_test1.shape)
+print('Found %s unique tokens.' % len(leftTableWordToIndexMap))
+
+
+# pad with zeros each integer sequence in each table up to MAX_SEQUENCE_LENGTH
+leftTablePaddedVectors = pad_sequences(
+    leftTableVectors, maxlen=MAX_SEQUENCE_LENGTH)
+rightTablePaddedVectors = pad_sequences(
+    rightTableVectors, maxlen=MAX_SEQUENCE_LENGTH)
+
+
+# compute training, test and validation set sizes
+trainingSetSize = leftTableTrainRecords.shape[0]
+validationSetSize = leftTableValRecords.shape[0]
+testSetSize = leftTableTestRecords.shape[0]
+
+
+# split the data into training, test and validation set
+leftTableTrainData = leftTablePaddedVectors[:trainingSetSize]
+rightTableTrainData = rightTablePaddedVectors[:trainingSetSize]
+
+leftTableValData = leftTablePaddedVectors[trainingSetSize:(
+    trainingSetSize + validationSetSize)]
+rightTableValData = rightTablePaddedVectors[trainingSetSize:(
+    trainingSetSize + validationSetSize)]
+
+leftTableTestData = leftTablePaddedVectors[-testSetSize:]
+rightTableTestData = rightTablePaddedVectors[-testSetSize:]
+
+
+print('Shape of training data:', leftTableTrainData.shape)
+print('Shape of validation data:', leftTableValData.shape)
+print('Shape of test data:', leftTableTestData.shape)
 print('Preparing embedding matrix.')
 
+
 # prepare embedding matrix
-num_words1 = min(MAX_NUM_WORDS, len(word_index1)) + 1
-embedding_matrix1 = np.zeros((num_words1, EMBEDDING_DIM))
-for word, i in word_index1.items():
+leftTableVocab = min(MAX_NUM_WORDS, len(leftTableWordToIndexMap)) + 1
+leftTableEmbeddingMatrix = np.zeros((leftTableVocab, EMBEDDING_DIM))
+for word, i in leftTableWordToIndexMap.items():
     if i > MAX_NUM_WORDS:
         continue
     embedding_vector = wordToEmbeddingMap.get(word)
     if embedding_vector is not None:
         # words not found in embedding index will be all-zeros.
-        embedding_matrix1[i] = embedding_vector
+        leftTableEmbeddingMatrix[i] = embedding_vector
 
-num_words2 = min(MAX_NUM_WORDS, len(word_index2)) + 1
-embedding_matrix2 = np.zeros((num_words2, EMBEDDING_DIM))
-for word, i in word_index2.items():
+rightTableVocab = min(MAX_NUM_WORDS, len(rightTableWordToIndexMap)) + 1
+rightTableEmbeddingMatrix = np.zeros((rightTableVocab, EMBEDDING_DIM))
+for word, i in rightTableWordToIndexMap.items():
     if i > MAX_NUM_WORDS:
         continue
     embedding_vector = wordToEmbeddingMap.get(word)
     if embedding_vector is not None:
-        embedding_matrix2[i] = embedding_vector
+        rightTableEmbeddingMatrix[i] = embedding_vector
 
 # load pre-trained word embeddings into an Embedding layer
 # note that we set trainable = False so as to keep the embeddings fixed
 inputA = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 inputB = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
 
-x1 = Embedding(num_words1, EMBEDDING_DIM, input_length=MAX_SEQUENCE_LENGTH,
-               weights=[embedding_matrix1], trainable=True, mask_zero=True)(inputA)
+x1 = Embedding(
+    leftTableVocab,
+    EMBEDDING_DIM,
+    input_length=MAX_SEQUENCE_LENGTH,
+    weights=[leftTableEmbeddingMatrix],
+    trainable=True,
+    mask_zero=True)(inputA)
 x1 = LSTM(150)(x1)
 
-x2 = Embedding(num_words2, EMBEDDING_DIM, input_length=MAX_SEQUENCE_LENGTH,
-               weights=[embedding_matrix2], trainable=True, mask_zero=True)(inputB)
+x2 = Embedding(
+    rightTableVocab,
+    EMBEDDING_DIM,
+    input_length=MAX_SEQUENCE_LENGTH,
+    weights=[rightTableEmbeddingMatrix],
+    trainable=True,
+    mask_zero=True)(inputB)
 x2 = LSTM(150)(x2)
 
 subtracted = Subtract()([x1, x2])
@@ -153,8 +170,16 @@ model.compile(
     metrics=['accuracy'])
 print(model.summary())
 
-model.fit([x_train1, x_train2], y_train, batch_size=16, epochs=20, validation_data=(
-    [x_val1, x_val2], y_val), callbacks=[EarlyStopping(patience=4)])
+model.fit([leftTableTrainData,
+           rightTableTrainData],
+          trainLabels,
+          batch_size=16,
+          epochs=20,
+          validation_data=([leftTableValData,
+                            rightTableValData],
+                           valLabels),
+          callbacks=[EarlyStopping(patience=4)])
 
-test_result = model.evaluate(x=[x_test1, x_test2], y=y_test)
+test_result = model.evaluate(
+    x=[leftTableTestData, rightTableTestData], y=testLabels)
 print(test_result)
