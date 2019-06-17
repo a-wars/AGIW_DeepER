@@ -114,3 +114,25 @@ def preprocess_data(
     valData = [leftTableValData, rightTableValData, valLabels]
 
     return trainData, testData, valData, embeddingMatrix
+def calculate_fmeasure(model,test_set,test_labels):
+        predictions=model.predict(x=test_set)
+        predicted_labels=[]
+        for pred in predictions:
+                if pred[1]>pred[0]:
+                        predicted_labels.append(1)
+                else:
+                        predicted_labels.append(0)
+        truepositives=0
+        falsepositives=0
+        falsenegatives=0
+        for idx,pred in enumerate(predicted_labels):
+                if pred==1 and test_labels[idx][1]==1:
+                        truepositives+=1
+                elif pred==0 and test_labels[idx][1]==1:
+                        falsenegatives+=1
+                elif pred==1 and test_labels[idx][0]==1
+                        falsepositives+=1
+        recall=truepositives/(truepositives+falsenegatives)
+        precision=truepositives/(truepositives+falsepositives)
+        f_measure= 2 * ((precision * recall)/(precision+ recall))
+        return f_measure
