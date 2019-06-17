@@ -9,151 +9,168 @@ from keras.models import Model
 from keras.layers import Dense, Embedding, LSTM, Subtract, Activation
 from keras.optimizers import Adam
 
-BASE_DIR = '.'
-GLOVE_DIR = os.path.join(BASE_DIR, 'glove')
-MAX_SEQUENCE_LENGTH = 1000
-MAX_NUM_WORDS = 20000
-EMBEDDING_DIM = 100
 
-# first, build index mapping words in the embeddings set
-# to their embedding vector
-wordToEmbeddingMap = {}
-with open(os.path.join(GLOVE_DIR, 'glove.6B.100d.txt')) as f:
-    for line in f:
-        word, coefs = line.split(maxsplit=1)
-        coefs = np.fromstring(coefs, 'f', sep=' ')
-        wordToEmbeddingMap[word] = coefs
+def preprocess_data(
+        datasetName,
+        baseDir='.',
+        gloveDir='glove',
+        datasetDir='datasets',
+        maxSequenceLength=1000,
+        maxNumWords=20000,
+        embeddingDim=100):
+    GLOVE_DIR = os.path.join(baseDir, gloveDir)
+    DATASET_DIR = os.path.join(baseDir, datasetDir, datasetName)
+    GLOVE_FILENAME_FMT = 'glove.6B.{}d.txt'
+    DATASET_FILENAME_FMT = datasetName + '_{}.csv'
+    DATASET_FILEPATH_FMT = os.path.join(DATASET_DIR, DATASET_FILENAME_FMT)
 
-print('Found %s word vectors.' % len(wordToEmbeddingMap))
+    # first, build a dictionary mapping words in the embeddings set
+    # to their embedding vector
+    wordToEmbeddingMap = {}
+    gloveFilename = GLOVE_FILENAME_FMT.format(str(embeddingDim))
+    with open(os.path.join(GLOVE_DIR, gloveFilename)) as f:
+        for line in f:
+            word, coefs = line.split(maxsplit=1)
+            coefs = np.fromstring(coefs, 'f', sep=' ')
+            wordToEmbeddingMap[word] = coefs
 
-# read train, test and validation datasets
-trainDf = pd.read_csv('./datasets/Fodors_Zagats/Fodors_Zagats_train.csv')
-valDf = pd.read_csv('./datasets/Fodors_Zagats/Fodors_Zagats_valid.csv')
-testDf = pd.read_csv('./datasets/Fodors_Zagats/Fodors_Zagats_test.csv')
+    # read train, test and validation datasets
+    trainDf = pd.read_csv(DATASET_FILEPATH_FMT.format('train'))
+    valDf = pd.read_csv(DATASET_FILEPATH_FMT.format('valid'))
+    testDf = pd.read_csv(DATASET_FILEPATH_FMT.format('test'))
+
+    # extract labels from each dataset
+    trainLabels = trainDf['label']
+    valLabels = valDf['label']
+    testLabels = testDf['label']
+
+    # extract records from each dataset
+    leftTableTrainRecords = trainDf['attributi_x']
+    rightTableTrainRecords = trainDf['attributi_y']
+
+    leftTableValRecords = valDf['attributi_x']
+    rightTableValRecords = valDf['attributi_y']
+
+    leftTableTestRecords = testDf['attributi_x']
+    rightTableTestRecords = testDf['attributi_y']
+
+    # put train, test and validation records into a list
+    leftTableRecordsList = [
+        leftTableTrainRecords,
+        leftTableValRecords,
+        leftTableTestRecords]
+    rightTableRecordsList = [
+        rightTableTrainRecords,
+        rightTableValRecords,
+        rightTableTestRecords]
+    tableRecordsList = leftTableRecordsList + rightTableRecordsList
+
+    # concat previously defined lists
+    leftTableRecords = pd.concat(leftTableRecordsList)
+    rightTableRecords = pd.concat(rightTableRecordsList)
+    tableRecords = pd.concat(tableRecordsList)
+
+    # finally, vectorize the text samples into a 2D integer tensor
+    tokenizer = Tokenizer(num_words=maxNumWords)
+    tokenizer.fit_on_texts(tableRecords)
+    wordToIndexMap = tokenizer.word_index
+    leftTableVectors = tokenizer.texts_to_sequences(leftTableRecords)
+    rightTableVectors = tokenizer.texts_to_sequences(rightTableRecords)
+
+    # pad with zeros each integer sequence in each table up to
+    # maxSequenceLength
+    leftTablePaddedVectors = pad_sequences(
+        leftTableVectors, maxlen=maxSequenceLength)
+    rightTablePaddedVectors = pad_sequences(
+        rightTableVectors, maxlen=maxSequenceLength)
+
+    # compute training, test and validation set sizes
+    trainingSetSize = leftTableTrainRecords.shape[0]
+    validationSetSize = leftTableValRecords.shape[0]
+    testSetSize = leftTableTestRecords.shape[0]
+
+    # split the data into training, test and validation set
+    leftTableTrainData = leftTablePaddedVectors[:trainingSetSize]
+    rightTableTrainData = rightTablePaddedVectors[:trainingSetSize]
+
+    leftTableValData = leftTablePaddedVectors[trainingSetSize:(
+        trainingSetSize + validationSetSize)]
+    rightTableValData = rightTablePaddedVectors[trainingSetSize:(
+        trainingSetSize + validationSetSize)]
+
+    leftTableTestData = leftTablePaddedVectors[-testSetSize:]
+    rightTableTestData = rightTablePaddedVectors[-testSetSize:]
+
+    # prepare embedding matrix
+    vocabSize = min(maxNumWords, len(wordToIndexMap)) + 1
+    embeddingMatrix = np.zeros((vocabSize, embeddingDim))
+
+    for word, i in wordToIndexMap.items():
+        if i > maxNumWords:
+            continue
+        embeddingVector = wordToEmbeddingMap.get(word)
+        if embeddingVector is not None:
+            # words not found in embedding index will be all-zeros.
+            embeddingMatrix[i] = embeddingVector
+
+    # return training, test and validation splits and embedding matrix
+    trainData = [leftTableTrainData, rightTableTrainData, trainLabels]
+    testData = [leftTableTestData, rightTableTestData, testLabels]
+    valData = [leftTableValData, rightTableValData, valLabels]
+
+    return trainData, testData, valData, embeddingMatrix
 
 
-# extract labels from each dataset
-trainLabels = trainDf['label']
-valLabels = valDf['label']
-testLabels = testDf['label']
+def build_model(
+        embeddingMatrix,
+        maxSequenceLength=1000,
+        lstmUnits=150,
+        denseUnits=256):
+    vocabSize = embeddingMatrix.shape[0]
+    embeddingDim = embeddingMatrix.shape[1]
+    print(embeddingDim)
+    leftInput = Input(shape=(maxSequenceLength,), dtype='int32')
+    rightInput = Input(shape=(maxSequenceLength,), dtype='int32')
+
+    leftEmbeddingLayer = Embedding(
+        vocabSize,
+        embeddingDim,
+        input_length=maxSequenceLength,
+        weights=[embeddingMatrix],
+        trainable=True,
+        mask_zero=True)(leftInput)
+    rightEmbeddingLayer = Embedding(
+        vocabSize,
+        embeddingDim,
+        input_length=maxSequenceLength,
+        weights=[embeddingMatrix],
+        trainable=True,
+        mask_zero=True)(rightInput)
+
+    leftLSTMLayer = LSTM(lstmUnits)(leftEmbeddingLayer)
+    rightLSTMLayer = LSTM(lstmUnits)(rightEmbeddingLayer)
+
+    similarityLayer = Subtract()([leftLSTMLayer, rightLSTMLayer])
+    denseLayer = Dense(denseUnits, activation='relu')(similarityLayer)
+    outputLayer = Dense(1, activation='sigmoid')(denseLayer)
+
+    model = Model(inputs=[leftInput, rightInput], outputs=[outputLayer])
+
+    model.compile(
+        loss='binary_crossentropy',
+        optimizer=Adam(lr=0.01),
+        metrics=['accuracy'])
+
+    return model
 
 
-# extract data from each dataset
-leftTableTrainRecords = trainDf['attributi_x']
-rightTableTrainRecords = trainDf['attributi_y']
+trainData, testData, valData, embeddingMatrix = preprocess_data(
+    'Fodors_Zagats')
+leftTableTrainData, rightTableTrainData, trainLabels = trainData
+leftTableTestData, rightTableTestData, testLabels = testData
+leftTableValData, rightTableValData, valLabels = valData
 
-leftTableValRecords = valDf['attributi_x']
-rightTableValRecords = valDf['attributi_y']
-
-leftTableTestRecords = testDf['attributi_x']
-rightTableTestRecords = testDf['attributi_y']
-
-
-# put train, test and validation records into a list
-leftTableRecordsList = [
-    leftTableTrainRecords,
-    leftTableValRecords,
-    leftTableTestRecords]
-rightTableRecordsList = [
-    rightTableTrainRecords,
-    rightTableValRecords,
-    rightTableTestRecords]
-tableRecordsList = leftTableRecordsList + rightTableRecordsList
-
-
-# concat previously defined lists
-leftTableRecords = pd.concat(leftTableRecordsList)
-rightTableRecords = pd.concat(rightTableRecordsList)
-tableRecords = pd.concat(tableRecordsList)
-
-print('Found %s texts.' % len(leftTableRecords))
-
-
-# finally, vectorize the text samples into a 2D integer tensor
-tokenizer = Tokenizer(num_words=MAX_NUM_WORDS)
-tokenizer.fit_on_texts(tableRecords)
-wordToIndexMap = tokenizer.word_index
-leftTableVectors = tokenizer.texts_to_sequences(leftTableRecords)
-rightTableVectors = tokenizer.texts_to_sequences(rightTableRecords)
-
-
-print('Found %s unique tokens.' % len(wordToIndexMap))
-
-
-# pad with zeros each integer sequence in each table up to MAX_SEQUENCE_LENGTH
-leftTablePaddedVectors = pad_sequences(
-    leftTableVectors, maxlen=MAX_SEQUENCE_LENGTH)
-rightTablePaddedVectors = pad_sequences(
-    rightTableVectors, maxlen=MAX_SEQUENCE_LENGTH)
-
-
-# compute training, test and validation set sizes
-trainingSetSize = leftTableTrainRecords.shape[0]
-validationSetSize = leftTableValRecords.shape[0]
-testSetSize = leftTableTestRecords.shape[0]
-
-
-# split the data into training, test and validation set
-leftTableTrainData = leftTablePaddedVectors[:trainingSetSize]
-rightTableTrainData = rightTablePaddedVectors[:trainingSetSize]
-
-leftTableValData = leftTablePaddedVectors[trainingSetSize:(
-    trainingSetSize + validationSetSize)]
-rightTableValData = rightTablePaddedVectors[trainingSetSize:(
-    trainingSetSize + validationSetSize)]
-
-leftTableTestData = leftTablePaddedVectors[-testSetSize:]
-rightTableTestData = rightTablePaddedVectors[-testSetSize:]
-
-
-print('Shape of training data:', leftTableTrainData.shape)
-print('Shape of validation data:', leftTableValData.shape)
-print('Shape of test data:', leftTableTestData.shape)
-print('Preparing embedding matrix.')
-
-
-# prepare embedding matrix
-vocabSize = min(MAX_NUM_WORDS, len(wordToIndexMap)) + 1
-embeddingMatrix = np.zeros((vocabSize, EMBEDDING_DIM))
-for word, i in wordToIndexMap.items():
-    if i > MAX_NUM_WORDS:
-        continue
-    embeddingVector = wordToEmbeddingMap.get(word)
-    if embeddingVector is not None:
-        # words not found in embedding index will be all-zeros.
-        embeddingMatrix[i] = embeddingVector
-
-# load pre-trained word embeddings into an Embedding layer
-# note that we set trainable = False so as to keep the embeddings fixed
-inputA = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
-inputB = Input(shape=(MAX_SEQUENCE_LENGTH,), dtype='int32')
-
-x1 = Embedding(
-    vocabSize,
-    EMBEDDING_DIM,
-    input_length=MAX_SEQUENCE_LENGTH,
-    weights=[embeddingMatrix],
-    trainable=True,
-    mask_zero=True)(inputA)
-x1 = LSTM(150)(x1)
-
-x2 = Embedding(
-    vocabSize,
-    EMBEDDING_DIM,
-    input_length=MAX_SEQUENCE_LENGTH,
-    weights=[embeddingMatrix],
-    trainable=True,
-    mask_zero=True)(inputB)
-x2 = LSTM(150)(x2)
-
-subtracted = Subtract()([x1, x2])
-dense = Dense(256, activation='relu')(subtracted)
-output = Dense(1, activation='sigmoid')(dense)
-model = Model(inputs=[inputA, inputB], outputs=[output])
-model.compile(
-    loss='binary_crossentropy',
-    optimizer=Adam(lr=0.01),
-    metrics=['accuracy'])
+model = build_model(embeddingMatrix)
 print(model.summary())
 
 model.fit([leftTableTrainData,
