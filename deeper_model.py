@@ -6,7 +6,7 @@ from keras.optimizers import Adam
 def build_model(
         embeddingMatrix,
         maxSequenceLength=1000,
-        lstmUnits=150,
+        lstmUnits=200,
         denseUnits=256):
     vocabSize = embeddingMatrix.shape[0]
     embeddingDim = embeddingMatrix.shape[1]
@@ -34,7 +34,7 @@ def build_model(
 
     similarityLayer = Subtract()([leftLSTMLayer, rightLSTMLayer])
     denseLayer = Dense(denseUnits, activation='relu')(similarityLayer)
-    outputLayer = Dense(1, activation='sigmoid')(denseLayer)
+    outputLayer = Dense(2, activation='softmax')(denseLayer)
 
     model = Model(inputs=[leftInput, rightInput], outputs=[outputLayer])
 
