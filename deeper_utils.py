@@ -12,7 +12,7 @@ def preprocess_data(
         datasetDir='datasets',
         maxSequenceLength=1000,
         maxNumWords=20000,
-        embeddingDim=100):
+        embeddingDim=300):
     GLOVE_DIR = os.path.join(baseDir, gloveDir)
     DATASET_DIR = os.path.join(baseDir, datasetDir, datasetName)
     GLOVE_FILENAME_FMT = 'glove.6B.{}d.txt'
