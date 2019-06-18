@@ -10,7 +10,6 @@ def build_model(
         denseUnits=256):
     vocabSize = embeddingMatrix.shape[0]
     embeddingDim = embeddingMatrix.shape[1]
-    print(embeddingDim)
     leftInput = Input(shape=(maxSequenceLength,), dtype='int32')
     rightInput = Input(shape=(maxSequenceLength,), dtype='int32')
 

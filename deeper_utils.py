@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
-from keras.utils import to_categorical # delete?
 
 def preprocess_data(
         datasetName,
@@ -11,23 +10,26 @@ def preprocess_data(
         gloveDir='glove',
         datasetDir='datasets',
         maxSequenceLength=1000,
-        maxNumWords=20000,
-        embeddingDim=300):
+        maxNumWords=20000):
+    
+    EMBEDDING_DIM = 300
     GLOVE_DIR = os.path.join(baseDir, gloveDir)
     DATASET_DIR = os.path.join(baseDir, datasetDir, datasetName)
-    GLOVE_FILENAME_FMT = 'glove.6B.{}d.txt'
+    GLOVE_FILENAME = 'glove.840B.300d.txt'
     DATASET_FILENAME_FMT = datasetName + '_{}.csv'
     DATASET_FILEPATH_FMT = os.path.join(DATASET_DIR, DATASET_FILENAME_FMT)
 
     # first, build a dictionary mapping words in the embeddings set
     # to their embedding vector
     wordToEmbeddingMap = {}
-    gloveFilename = GLOVE_FILENAME_FMT.format(str(embeddingDim))
-    with open(os.path.join(GLOVE_DIR, gloveFilename)) as f:
+    with open(os.path.join(GLOVE_DIR, GLOVE_FILENAME)) as f:
         for line in f:
             word, coefs = line.split(maxsplit=1)
             coefs = np.fromstring(coefs, 'f', sep=' ')
-            wordToEmbeddingMap[word] = coefs
+            # we found out that glove.840B.300d.txt is supposed to contain 301-item lines (the token and its 300 weights) but some lines do contain 
+            # more than one str tokens, so we ignore those malformed lines (whose corresponding coefs variable is an empty array)
+            if len(coefs) != 0:
+                wordToEmbeddingMap[word] = coefs
 
     # read train, test and validation datasets
     trainDf = pd.read_csv(DATASET_FILEPATH_FMT.format('train'))
@@ -98,22 +100,25 @@ def preprocess_data(
 
     # prepare embedding matrix
     vocabSize = min(maxNumWords, len(wordToIndexMap)) + 1
-    embeddingMatrix = np.zeros((vocabSize, embeddingDim))
+    embeddingMatrix = np.zeros((vocabSize, EMBEDDING_DIM))
 
+    wordsWithNoEmbedding = []
     for word, i in wordToIndexMap.items():
         if i > maxNumWords:
             continue
         embeddingVector = wordToEmbeddingMap.get(word)
         if embeddingVector is not None:
-            # words not found in embedding index will be all-zeros.
             embeddingMatrix[i] = embeddingVector
-
-    # return training, test and validation splits and embedding matrix
+        else:
+            # words not found in embedding index will be all-zeros.
+            wordsWithNoEmbedding.append(word)
+    
+    # return training, test and validation splits and embedding matrix (and words with no embeddings)
     trainData = [leftTableTrainData, rightTableTrainData, trainLabels]
     testData = [leftTableTestData, rightTableTestData, testLabels]
     valData = [leftTableValData, rightTableValData, valLabels]
 
-    return trainData, testData, valData, embeddingMatrix
+    return trainData, testData, valData, embeddingMatrix, wordsWithNoEmbedding
 
 
 def calculate_fmeasure(model, test_set, test_labels):
