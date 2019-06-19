@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
+from keras.utils import to_categorical
 
 def preprocess_data(
         datasetName,
@@ -37,9 +38,9 @@ def preprocess_data(
     testDf = pd.read_csv(DATASET_FILEPATH_FMT.format('test'))
 
     # extract labels from each dataset
-    trainLabels = trainDf['label']
-    valLabels = valDf['label']
-    testLabels = testDf['label']
+    trainLabels = to_categorical(np.asarray(trainDf['label']))
+    valLabels = to_categorical(np.asarray(valDf['label']))
+    testLabels = to_categorical(np.asarray(testDf['label']))
 
     # extract records from each dataset
     leftTableTrainRecords = trainDf['attributi_x']

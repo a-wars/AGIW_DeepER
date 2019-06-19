@@ -7,7 +7,7 @@ def build_model(
         embeddingMatrix,
         maxSequenceLength=1000,
         lstmUnits=150,
-        denseUnits=256):
+        denseUnits=64):
     vocabSize = embeddingMatrix.shape[0]
     embeddingDim = embeddingMatrix.shape[1]
     leftInput = Input(shape=(maxSequenceLength,), dtype='int32')
@@ -28,12 +28,15 @@ def build_model(
         trainable=True,
         mask_zero=True)(rightInput)
 
-    leftLSTMLayer = LSTM(lstmUnits)(leftEmbeddingLayer)
-    rightLSTMLayer = LSTM(lstmUnits)(rightEmbeddingLayer)
+    sharedLstmlayer = LSTM(lstmUnits, dropout=0.1)
+    leftLSTMLayer = sharedLstmlayer(leftEmbeddingLayer)
+    rightLSTMLayer = sharedLstmlayer(rightEmbeddingLayer)
 
-    similarityLayer = Subtract()([leftLSTMLayer, rightLSTMLayer])
+    leftSamplingLayer = Dense(50)(rightLSTMLayer)
+    rightSamplingLayer = Dense(50)(rightLSTMLayer)
+    similarityLayer = Subtract()([leftSamplingLayer, rightSamplingLayer])
     denseLayer = Dense(denseUnits, activation='relu')(similarityLayer)
-    outputLayer = Dense(1, activation='sigmoid')(denseLayer)
+    outputLayer = Dense(2, activation='softmax')(denseLayer)
 
     model = Model(inputs=[leftInput, rightInput], outputs=[outputLayer])
 
