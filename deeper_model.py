@@ -32,8 +32,8 @@ def build_model(
     leftLSTMLayer = sharedLstmlayer(leftEmbeddingLayer)
     rightLSTMLayer = sharedLstmlayer(rightEmbeddingLayer)
 
-    leftSamplingLayer = Dense(50)(leftLSTMLayer)
-    rightSamplingLayer = Dense(50)(rightLSTMLayer)
+    leftSamplingLayer = Dense(50, name="left_tuple_embedding")(leftLSTMLayer)
+    rightSamplingLayer = Dense(50, name="right_tuple_embedding")(rightLSTMLayer)
     similarityLayer = Subtract()([leftSamplingLayer, rightSamplingLayer])
     denseLayer = Dense(denseUnits, activation='relu')(similarityLayer)
     outputLayer = Dense(2, activation='softmax')(denseLayer)
