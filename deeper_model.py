@@ -7,7 +7,8 @@ def build_model(
         embeddingMatrix,
         maxSequenceLength=1000,
         lstmUnits=150,
-        denseUnits=64):
+        denseUnits=64,
+        mask_zero=True):
     vocabSize = embeddingMatrix.shape[0]
     embeddingDim = embeddingMatrix.shape[1]
     leftInput = Input(shape=(maxSequenceLength,), dtype='int32')
@@ -19,14 +20,14 @@ def build_model(
         input_length=maxSequenceLength,
         weights=[embeddingMatrix],
         trainable=True,
-        mask_zero=True)(leftInput)
+        mask_zero=mask_zero)(leftInput)
     rightEmbeddingLayer = Embedding(
         vocabSize,
         embeddingDim,
         input_length=maxSequenceLength,
         weights=[embeddingMatrix],
         trainable=True,
-        mask_zero=True)(rightInput)
+        mask_zero=mask_zero)(rightInput)
 
     sharedLstmlayer = LSTM(lstmUnits, dropout=0.1)
     leftLSTMLayer = sharedLstmlayer(leftEmbeddingLayer)
