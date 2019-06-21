@@ -10,7 +10,7 @@ def preprocess_data(
         baseDir='.',
         gloveDir='glove',
         datasetDir='datasets',
-        maxSequenceLength=1000,
+        maxSequenceLength=100,
         maxNumWords=20000):
     
     EMBEDDING_DIM = 300
