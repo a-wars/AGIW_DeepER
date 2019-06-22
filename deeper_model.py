@@ -15,21 +15,18 @@ def build_model(
     leftInput = Input(shape=(maxSequenceLength,), dtype='int32')
     rightInput = Input(shape=(maxSequenceLength,), dtype='int32')
 
-    leftEmbeddingLayer = Embedding(
-        vocabSize,
-        embeddingDim,
-        input_length=maxSequenceLength,
-        weights=[embeddingMatrix],
-        trainable=True,
-        mask_zero=mask_zero)(leftInput)
-    rightEmbeddingLayer = Embedding(
-        vocabSize,
-        embeddingDim,
-        input_length=maxSequenceLength,
-        weights=[embeddingMatrix],
-        trainable=True,
-        mask_zero=mask_zero)(rightInput)
 
+    embeddingLayer = Embedding(
+    vocabSize,
+    embeddingDim,
+    input_length=maxSequenceLength,
+    weights=[embeddingMatrix],
+    trainable=True,
+    mask_zero=mask_zero)
+    
+    leftEmbeddingLayer = embeddingLayer(leftInput)
+    rightEmbeddingLayer = embeddingLayer(rightInput)
+    
     sharedLSTMLayer = Bidirectional(LSTM(lstmUnits, dropout=lstm_dropout), merge_mode='concat')
     leftLSTMLayer = sharedLSTMLayer(leftEmbeddingLayer)
     rightLSTMLayer = sharedLSTMLayer(rightEmbeddingLayer)
@@ -44,7 +41,7 @@ def build_model(
 
     model.compile(
         loss='binary_crossentropy',
-        optimizer=Adam(lr=0.01),
+        optimizer=Adam(),
         metrics=['accuracy'])
 
     return model
