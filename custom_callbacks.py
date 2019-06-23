@@ -1,6 +1,6 @@
-import numpy as np
 from keras.callbacks import Callback
 from sklearn.metrics import precision_recall_fscore_support
+from keras.models import load_model
 
 
 class Metrics(Callback):
@@ -8,6 +8,7 @@ class Metrics(Callback):
         self.valFMeasureHistory = []
         self.valRecallHistory = []
         self.valPrecisionHistory = []
+        self.bestFMeasure = 0
 
     def on_epoch_end(self, epoch, logs={}):
         valPredictedLabels = self.model.predict(
@@ -23,6 +24,11 @@ class Metrics(Callback):
 
         if valFMeasure is None:
             valFMeasure = 0.0
+
+
+        if valFMeasure > self.bestFMeasure:
+            self.bestFMeasure = valFMeasure
+            self.model.save('best-model.h5')
             
         self.valFMeasureHistory.append(valFMeasure)
         self.valRecallHistory.append(valRecall)
