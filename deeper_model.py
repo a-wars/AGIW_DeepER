@@ -1,6 +1,6 @@
 from keras import Input
 from keras.models import Model
-from keras.layers import Dense, Embedding, LSTM, Bidirectional, Subtract, Activation
+from keras.layers import Dense, Embedding, LSTM, Bidirectional, Subtract, Activation, Multiply, Concatenate
 from keras.optimizers import Adam
 
 def build_model(
@@ -31,7 +31,10 @@ def build_model(
     leftLSTMLayer = sharedLSTMLayer(leftEmbeddingLayer)
     rightLSTMLayer = sharedLSTMLayer(rightEmbeddingLayer)
 
-    similarityLayer = Subtract()([leftLSTMLayer, rightLSTMLayer])
+    subtractLayer = Subtract()([leftLSTMLayer, rightLSTMLayer])
+    multiplyLayer = Multiply()([leftLSTMLayer, rightLSTMLayer])
+
+    similarityLayer = Concatenate([subtractLayer, multiplyLayer])
     
     # adding dense layers
     for i in range(len(denseUnits)):
