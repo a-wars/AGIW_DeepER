@@ -1,6 +1,7 @@
 from keras.callbacks import Callback
 from sklearn.metrics import precision_recall_fscore_support
 
+
 class Metrics(Callback):
     def on_train_begin(self, logs={}):
         self.valFMeasureHistory = []
@@ -23,19 +24,23 @@ class Metrics(Callback):
         if valFMeasure is None:
             valFMeasure = 0.0
 
-
         if valFMeasure > self.bestFMeasure:
-        	print('Updating best model')
-        	print('Current best model comes from epoch {}'.format(str(epoch)))
+            print('Updating best model')
+            print('Current best model comes from epoch {}'.format(str(epoch)))
             self.bestFMeasure = valFMeasure
             self.model.save('best-model.h5')
-            
+
         self.valFMeasureHistory.append(valFMeasure)
         self.valRecallHistory.append(valRecall)
         self.valPrecisionHistory.append(valPrecision)
 
         valMessageFmt = "val_f1:{}\tval_precision: {}\tval_recall: {}"
-        print(valMessageFmt.format(round(valFMeasure,2), round(valPrecision,2), round(valRecall, 2)))
+        print(
+            valMessageFmt.format(
+                round(
+                    valFMeasure, 2), round(
+                    valPrecision, 2), round(
+                    valRecall, 2)))
         print()
 
         return
