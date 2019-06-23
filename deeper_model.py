@@ -34,7 +34,7 @@ def build_model(
     subtractLayer = Subtract()([leftLSTMLayer, rightLSTMLayer])
     multiplyLayer = Multiply()([leftLSTMLayer, rightLSTMLayer])
 
-    similarityLayer = Concatenate([subtractLayer, multiplyLayer])
+    similarityLayer = Concatenate()([subtractLayer, multiplyLayer])
     
     # adding dense layers
     for i in range(len(denseUnits)):
