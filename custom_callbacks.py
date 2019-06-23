@@ -1,7 +1,5 @@
 from keras.callbacks import Callback
 from sklearn.metrics import precision_recall_fscore_support
-from keras.models import load_model
-
 
 class Metrics(Callback):
     def on_train_begin(self, logs={}):
