@@ -27,6 +27,8 @@ class Metrics(Callback):
 
 
         if valFMeasure > self.bestFMeasure:
+        	print('Updating best model')
+        	print('Current best model comes from epoch {}'.format(str(epoch)))
             self.bestFMeasure = valFMeasure
             self.model.save('best-model.h5')
             
