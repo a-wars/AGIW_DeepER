@@ -46,7 +46,7 @@ def build_model(
 
     model.compile(
         loss='binary_crossentropy',
-        optimizer=Adam(),
+        optimizer=Adam(lr=0.01, decay=0.001),
         metrics=['accuracy'])
 
     return model
