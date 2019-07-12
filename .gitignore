@@ -130,3 +130,5 @@ dmypy.json
 .DS_Store
 fasttext-embeddings/
 fasttext-model/
+camera_dataset/
+camera_trainingset/
