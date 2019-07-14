@@ -28,8 +28,8 @@ def build_model(
     rightEmbeddingLayer = embeddingLayer(rightInput)
     
     sharedLSTMLayer = Bidirectional(LSTM(lstmUnits, dropout=lstm_dropout), merge_mode='concat')
-    leftLSTMLayer = sharedLSTMLayer(leftEmbeddingLayer)
-    rightLSTMLayer = sharedLSTMLayer(rightEmbeddingLayer)
+    leftLSTMLayer = sharedLSTMLayer(leftEmbeddingLayer, name="left_tuple_embedding")
+    rightLSTMLayer = sharedLSTMLayer(rightEmbeddingLayer, name="right_tuple_embedding")
 
     similarityLayer = Subtract()([leftLSTMLayer, rightLSTMLayer])
     
