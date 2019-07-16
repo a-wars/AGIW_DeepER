@@ -76,7 +76,7 @@ def pad_table_vectors(leftTableVectors, rightTableVectors, maxSequenceLength):
 # to their embedding vector
 def get_word_to_embedding_map(filepath):
     wordToEmbeddingMap = {}
-    with open(filepath) as f:
+    with open(filepath,encoding='utf-8') as f:
         for line in f:
             word, coefs = line.split(maxsplit=1)
             coefs = np.fromstring(coefs, 'f', sep=' ')
